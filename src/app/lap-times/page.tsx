@@ -295,6 +295,17 @@ export default function LapTimerPage() {
     }
   };
 
+  function getBestLapTime(laps: Lap[]): number {
+    if (laps.length === 0) return Infinity;
+    return Math.min(...laps.map((lap) => lap.time));
+  }
+
+  function getBestLapNumber(laps: Lap[]): number {
+    if (laps.length === 0) return 0;
+    const bestTime = getBestLapTime(laps);
+    return laps.find((lap) => lap.time === bestTime)?.number || 0;
+  }
+
   return (
     <MainLayout>
       <Toaster />
@@ -331,7 +342,7 @@ export default function LapTimerPage() {
                         Add Track
                       </Button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="grid gap-2">
                       {tracks.map((track) => (
                         <Button
                           key={track.id}
@@ -343,7 +354,14 @@ export default function LapTimerPage() {
                           className="justify-start"
                           onClick={() => setSelectedTrack(track)}
                         >
-                          {track.name}
+                          <div className="flex justify-between w-full">
+                            <span>{track.name}</span>
+                            {track.fastest_lap !== Infinity && (
+                              <span className="text-sm text-muted-foreground">
+                                Best: {formatTime(track.fastest_lap)}
+                              </span>
+                            )}
+                          </div>
                         </Button>
                       ))}
                     </div>
@@ -370,41 +388,55 @@ export default function LapTimerPage() {
                       </Button>
                       <Button
                         variant="outline"
+                        onClick={handleLap}
+                        disabled={!isRunning}
+                        className="w-24"
+                      >
+                        Lap
+                      </Button>
+                      <Button
+                        variant="outline"
                         onClick={handleReset}
                         className="w-24"
                       >
                         Reset
                       </Button>
                     </div>
-                    {selectedTrack && (
-                      <div className="mt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-lg font-semibold">Lap Times</h3>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleLap}
-                            disabled={!isRunning}
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Lap
-                          </Button>
-                        </div>
-                        <div className="space-y-2">
-                          {laps.map((lap, index) => (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-semibold">Lap Times</h3>
+                      </div>
+                      <div className="space-y-2">
+                        {laps.map((lap, index) => {
+                          const isBestLap = lap.time === getBestLapTime(laps);
+                          return (
                             <div
                               key={lap.number}
-                              className="flex items-center justify-between p-2 bg-accent/50 rounded-md"
+                              className={`flex items-center justify-between p-2 rounded-md ${
+                                isBestLap ? "bg-green-500/20" : "bg-accent/50"
+                              }`}
                             >
-                              <span>Lap {laps.length - index}</span>
-                              <span className="font-mono">
-                                {formatTime(lap.time)}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span>Lap {laps.length - index}</span>
+                                {isBestLap && (
+                                  <span className="text-xs text-green-500">
+                                    Best
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className="font-mono">
+                                  {formatTime(lap.time)}
+                                </span>
+                                <span className="font-mono text-muted-foreground">
+                                  {formatTime(lap.splitTime)}
+                                </span>
+                              </div>
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -416,36 +448,69 @@ export default function LapTimerPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {selectedTrack.sessions.map((session) => (
-                        <div key={session.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-semibold">
-                              {format(new Date(session.date), "PPP")}
-                            </h4>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteSession(session.id)}
-                              className="text-destructive hover:text-destructive/90"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="grid gap-2">
-                            {session.laps.map((lap, index) => (
-                              <div
-                                key={lap.number}
-                                className="flex items-center justify-between p-2 bg-accent/50 rounded-md"
-                              >
-                                <span>Lap {session.laps.length - index}</span>
-                                <span className="font-mono">
-                                  {formatTime(lap.time)}
-                                </span>
+                      {selectedTrack.sessions.map((session) => {
+                        const bestLapTime = getBestLapTime(session.laps);
+                        const bestLapNumber = getBestLapNumber(session.laps);
+                        return (
+                          <div key={session.id} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-semibold">
+                                  {format(new Date(session.date), "PPP")}
+                                </h4>
+                                {bestLapTime !== Infinity && (
+                                  <p className="text-sm text-muted-foreground">
+                                    Best Lap: {bestLapNumber} -{" "}
+                                    {formatTime(bestLapTime)}
+                                  </p>
+                                )}
                               </div>
-                            ))}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteSession(session.id)}
+                                className="text-destructive hover:text-destructive/90"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <div className="grid gap-2">
+                              {session.laps.map((lap, index) => {
+                                const isBestLap = lap.time === bestLapTime;
+                                return (
+                                  <div
+                                    key={lap.number}
+                                    className={`flex items-center justify-between p-2 rounded-md ${
+                                      isBestLap
+                                        ? "bg-green-500/20"
+                                        : "bg-accent/50"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>
+                                        Lap {session.laps.length - index}
+                                      </span>
+                                      {isBestLap && (
+                                        <span className="text-xs text-green-500">
+                                          Best
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                      <span className="font-mono">
+                                        {formatTime(lap.time)}
+                                      </span>
+                                      <span className="font-mono text-muted-foreground">
+                                        {formatTime(lap.splitTime)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>

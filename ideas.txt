@@ -1,0 +1,6 @@
+Suspension tips AI Prompt
+Recccomended AI workouts based on goals / input
+(later maybe) litpro API incoproated into lap timer
+Bike manual lookup
+find parts near me 
+find tracks near me 

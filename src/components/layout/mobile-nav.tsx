@@ -83,14 +83,27 @@ export function MobileNav() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 right-4 block lg:hidden"
-        onClick={toggleMenu}
-      >
-        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-      </Button>
+      <header className="fixed top-0 left-0 right-0 bg-background z-50 lg:hidden">
+        <div className="h-14 flex items-center">
+          <div className="px-4">
+            <Link href="/" className="text-xl font-bold">
+              MX-Hub
+            </Link>
+          </div>
+          <div className="ml-auto px-4">
+            <Button variant="ghost" size="icon" onClick={toggleMenu}>
+              {isOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Add spacing for fixed header */}
+      <div className="h-14 lg:hidden" />
 
       {/* Full screen overlay */}
       <div

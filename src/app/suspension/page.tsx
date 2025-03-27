@@ -10,6 +10,8 @@ import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LoadingCard } from "@/components/ui/loading-card";
+import { useToast } from "@/components/ui/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 
 interface SuspensionSettings {
   id?: string;
@@ -23,6 +25,7 @@ interface SuspensionSettings {
 }
 
 export default function SuspensionPage() {
+  const { toast } = useToast();
   const [settings, setSettings] = useState<SuspensionSettings>({
     fork_compression: null,
     fork_rebound: null,
@@ -151,15 +154,25 @@ export default function SuspensionPage() {
 
     if (error) {
       console.error("Error deleting suspension settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete suspension settings. Please try again.",
+        variant: "destructive",
+      });
       return;
     }
 
     // Update UI state directly
     setSavedSettings((prev) => prev.filter((s) => s.id !== id));
+    toast({
+      title: "Success",
+      description: "Suspension settings deleted successfully.",
+    });
   }
 
   return (
     <MainLayout>
+      <Toaster />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Suspension Settings</h1>
 

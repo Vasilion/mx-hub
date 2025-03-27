@@ -23,6 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Track {
   id: string;
@@ -67,6 +68,7 @@ export default function LapTimerPage() {
   const startTimeRef = useRef<number>(0);
   const lastLapTimeRef = useRef<number>(0);
   const [isMobile, setIsMobile] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchTracks();
@@ -367,6 +369,11 @@ export default function LapTimerPage() {
 
       if (error) {
         console.error("Error deleting session:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete session. Please try again.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -377,7 +384,6 @@ export default function LapTimerPage() {
             const newSessions = track.sessions.filter(
               (s) => s.id !== sessionId
             );
-            // Recalculate fastest lap if needed
             const newFastestLap =
               newSessions.length > 0
                 ? Math.min(
@@ -410,8 +416,18 @@ export default function LapTimerPage() {
           fastest_lap: newFastestLap,
         };
       });
+
+      toast({
+        title: "Success",
+        description: "Session deleted successfully.",
+      });
     } catch (error) {
       console.error("Error deleting session:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -433,6 +449,11 @@ export default function LapTimerPage() {
 
       if (sessionsError) {
         console.error("Error deleting sessions:", sessionsError);
+        toast({
+          title: "Error",
+          description: "Failed to delete track sessions. Please try again.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -444,6 +465,11 @@ export default function LapTimerPage() {
 
       if (trackError) {
         console.error("Error deleting track:", trackError);
+        toast({
+          title: "Error",
+          description: "Failed to delete track. Please try again.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -452,8 +478,17 @@ export default function LapTimerPage() {
       if (selectedTrack?.id === trackId) {
         setSelectedTrack(null);
       }
+      toast({
+        title: "Success",
+        description: "Track and all its sessions deleted successfully.",
+      });
     } catch (error) {
       console.error("Error deleting track:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -614,100 +649,79 @@ export default function LapTimerPage() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <span>Session History</span>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteTrack(selectedTrack.id)}
-                        >
-                          Delete Track
-                        </Button>
-                      </CardTitle>
+                      <CardTitle>Session History</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <Accordion type="single" collapsible className="w-full">
-                        {selectedTrack.sessions.map((session) => (
-                          <TooltipProvider key={session.id}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <AccordionItem
-                                  value={session.id}
-                                  className="border-0"
-                                >
-                                  <AccordionTrigger className="w-full p-0 hover:no-underline">
-                                    <div className="flex items-center justify-between w-full p-3 rounded-md transition-colors hover:bg-red-500/10 group">
-                                      <div className="flex flex-col items-start gap-1">
-                                        <span className="font-medium">
-                                          {new Date(
-                                            session.created_at
-                                          ).toLocaleDateString()}
-                                        </span>
-                                        <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                          Total Time:{" "}
-                                          {formatTime(session.total_time)}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <div
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteSession(session.id);
-                                          }}
-                                          className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-2"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
+                        {selectedTrack?.sessions.map((session) => (
+                          <AccordionItem
+                            key={session.id}
+                            value={session.id}
+                            className="border-0"
+                          >
+                            <AccordionTrigger className="w-full p-0 hover:no-underline">
+                              <div className="flex items-center justify-between w-full p-3 rounded-md transition-colors hover:bg-red-500/10 group">
+                                <div className="flex flex-col items-start gap-1">
+                                  <span className="font-medium">
+                                    {new Date(
+                                      session.created_at
+                                    ).toLocaleDateString()}
+                                  </span>
+                                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                    Total Time: {formatTime(session.total_time)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteSession(session.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-2"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </div>
+                                  <ChevronDown className="h-4 w-4 transition-transform duration-200 transform group-data-[state=open]:rotate-180" />
+                                </div>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="px-3 py-2 space-y-2">
+                                {Array.isArray(session.laps) &&
+                                  session.laps.map((lap, index) => {
+                                    const isBestLap =
+                                      lap.time === getBestLapTime(session.laps);
+                                    return (
+                                      <div
+                                        key={`${session.id}-${index}`}
+                                        className={`flex items-center justify-between p-2 rounded-md ${
+                                          isBestLap
+                                            ? "bg-green-500/20"
+                                            : "bg-accent/50"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Lap {lap.number}</span>
+                                          {isBestLap && (
+                                            <span className="text-xs text-green-500">
+                                              Best
+                                            </span>
+                                          )}
                                         </div>
-                                        <ChevronDown className="h-4 w-4 transition-transform duration-200 transform group-data-[state=open]:rotate-180" />
+                                        <div className="flex items-center gap-4">
+                                          <span className="font-mono whitespace-nowrap">
+                                            {formatTime(lap.time)}
+                                          </span>
+                                          <span className="font-mono text-muted-foreground whitespace-nowrap">
+                                            {formatTime(lap.splitTime)}
+                                          </span>
+                                        </div>
                                       </div>
-                                    </div>
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="px-3 py-2 space-y-2">
-                                      {Array.isArray(session.laps) &&
-                                        session.laps.map((lap, index) => {
-                                          const isBestLap =
-                                            lap.time ===
-                                            getBestLapTime(session.laps);
-                                          return (
-                                            <div
-                                              key={`${session.id}-${index}`}
-                                              className={`flex items-center justify-between p-2 rounded-md ${
-                                                isBestLap
-                                                  ? "bg-green-500/20"
-                                                  : "bg-accent/50"
-                                              }`}
-                                            >
-                                              <div className="flex items-center gap-2">
-                                                <span>Lap {lap.number}</span>
-                                                {isBestLap && (
-                                                  <span className="text-xs text-green-500">
-                                                    Best
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-4">
-                                                <span className="font-mono whitespace-nowrap">
-                                                  {formatTime(lap.time)}
-                                                </span>
-                                                <span className="font-mono text-muted-foreground whitespace-nowrap">
-                                                  {formatTime(lap.splitTime)}
-                                                </span>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {isMobile
-                                  ? "Tap to see details"
-                                  : "Click to see details"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                                    );
+                                  })}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
                         ))}
                       </Accordion>
                     </CardContent>

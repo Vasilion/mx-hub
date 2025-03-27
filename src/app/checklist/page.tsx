@@ -68,6 +68,7 @@ export default function ChecklistPage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -302,6 +303,48 @@ export default function ChecklistPage() {
     );
   };
 
+  const handleDeleteChecklist = async (checklistId: string) => {
+    try {
+      setIsDeleting(checklistId);
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      // Delete all motos for this checklist first
+      const { error: motosError } = await supabase
+        .from("moto_checklists")
+        .delete()
+        .eq("riding_checklist_id", checklistId);
+
+      if (motosError) {
+        console.error("Error deleting motos:", motosError);
+        return;
+      }
+
+      // Then delete the checklist
+      const { error: checklistError } = await supabase
+        .from("riding_checklists")
+        .delete()
+        .eq("id", checklistId)
+        .eq("user_id", userData.user.id);
+
+      if (checklistError) {
+        console.error("Error deleting checklist:", checklistError);
+        return;
+      }
+
+      // Update UI state directly
+      setChecklists((prev) =>
+        prev.filter((checklist) => checklist.id !== checklistId)
+      );
+      toast({
+        title: "Success",
+        description: "Checklist deleted successfully.",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
   const toggleCard = (id: string) => {
     setExpandedCards((prev) => {
       const next = new Set(prev);
@@ -385,12 +428,32 @@ export default function ChecklistPage() {
                             "PPP"
                           )}
                         </CardTitle>
-                        <ChevronDown
-                          className={cn(
-                            "h-4 w-4 transition-transform duration-200",
-                            expandedCards.has(checklist.id) ? "rotate-180" : ""
-                          )}
-                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteChecklist(checklist.id);
+                            }}
+                            disabled={isDeleting === checklist.id}
+                            className="text-destructive hover:text-destructive/90"
+                          >
+                            {isDeleting === checklist.id ? (
+                              <LoadingSpinner className="w-4 h-4" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 transition-transform duration-200",
+                              expandedCards.has(checklist.id)
+                                ? "rotate-180"
+                                : ""
+                            )}
+                          />
+                        </div>
                       </div>
                     </CardHeader>
                   </CollapsibleTrigger>

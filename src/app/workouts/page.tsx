@@ -18,6 +18,8 @@ import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LoadingCard } from "@/components/ui/loading-card";
+import { useToast } from "@/components/ui/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 
 interface Exercise {
   id: string;
@@ -60,6 +62,7 @@ export default function WorkoutsPage() {
     reps: "",
     weight: "",
   });
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchWorkouts();
@@ -364,6 +367,11 @@ export default function WorkoutsPage() {
 
       if (error) {
         console.error("Error deleting exercise:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete exercise. Please try again.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -375,8 +383,17 @@ export default function WorkoutsPage() {
           ),
         }))
       );
+      toast({
+        title: "Success",
+        description: "Exercise deleted successfully.",
+      });
     } catch (err) {
       console.error("Unexpected error:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -495,6 +512,7 @@ export default function WorkoutsPage() {
 
   return (
     <MainLayout>
+      <Toaster />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Workouts</h1>
 

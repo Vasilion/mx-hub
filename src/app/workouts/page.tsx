@@ -14,17 +14,20 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, Plus } from "lucide-react";
+import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { LoadingCard } from "@/components/ui/loading-card";
 
 interface Exercise {
   id: string;
-  workout_id: string;
-  type: "cardio" | "strength";
   name: string;
-  reps?: number;
-  weight?: number;
-  duration?: number;
+  type: "cardio" | "strength";
+  reps: number | null;
+  weight: number | null;
+  duration: number | null;
+  workout_id: string;
+  user_id: string;
   created_at: string;
 }
 
@@ -32,6 +35,7 @@ interface Workout {
   id: string;
   title: string;
   date: string;
+  user_id: string;
   created_at: string;
   exercises: Exercise[];
 }
@@ -45,7 +49,10 @@ export default function WorkoutsPage() {
   const [date, setDate] = useState<Date>(new Date());
   const [isRunning, setIsRunning] = useState(false);
   const [time, setTime] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [workoutTitle, setWorkoutTitle] = useState("");
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [exerciseForm, setExerciseForm] = useState({
@@ -75,39 +82,45 @@ export default function WorkoutsPage() {
   }, [isRunning]);
 
   async function fetchWorkouts() {
-    const { data: userData } = await supabase.auth.getUser();
+    try {
+      setIsLoading(true);
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
 
-    // Fetch workouts
-    const { data: workoutsData, error: workoutsError } = await supabase
-      .from("workouts")
-      .select("*")
-      .eq("user_id", userData.user?.id)
-      .order("date", { ascending: false });
+      // Fetch workouts
+      const { data: workoutsData, error: workoutsError } = await supabase
+        .from("workouts")
+        .select("*")
+        .eq("user_id", userData.user.id)
+        .order("date", { ascending: false });
 
-    if (workoutsError) {
-      console.error("Error fetching workouts:", workoutsError);
-      return;
+      if (workoutsError) {
+        console.error("Error fetching workouts:", workoutsError);
+        return;
+      }
+
+      // Fetch exercises for each workout
+      const workoutsWithExercises = await Promise.all(
+        (workoutsData || []).map(async (workout) => {
+          const { data: exercisesData, error: exercisesError } = await supabase
+            .from("exercises")
+            .select("*")
+            .eq("workout_id", workout.id)
+            .order("created_at", { ascending: true });
+
+          if (exercisesError) {
+            console.error("Error fetching exercises:", exercisesError);
+            return { ...workout, exercises: [] };
+          }
+
+          return { ...workout, exercises: exercisesData || [] };
+        })
+      );
+
+      setWorkouts(workoutsWithExercises);
+    } finally {
+      setIsLoading(false);
     }
-
-    // Fetch exercises for each workout
-    const workoutsWithExercises = await Promise.all(
-      (workoutsData || []).map(async (workout) => {
-        const { data: exercisesData, error: exercisesError } = await supabase
-          .from("exercises")
-          .select("*")
-          .eq("workout_id", workout.id)
-          .order("created_at", { ascending: true });
-
-        if (exercisesError) {
-          console.error("Error fetching exercises:", exercisesError);
-          return { ...workout, exercises: [] };
-        }
-
-        return { ...workout, exercises: exercisesData || [] };
-      })
-    );
-
-    setWorkouts(workoutsWithExercises);
   }
 
   function formatTime(ms: number) {
@@ -123,27 +136,34 @@ export default function WorkoutsPage() {
     e.preventDefault();
     if (!workoutTitle.trim()) return;
 
-    const { data: userData } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from("workouts")
-      .insert([
-        {
-          title: workoutTitle,
-          date: format(date, "yyyy-MM-dd"),
-          user_id: userData.user?.id,
-        },
-      ])
-      .select()
-      .single();
+    try {
+      setIsCreating(true);
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
 
-    if (error) {
-      console.error("Error creating workout:", error);
-      return;
+      const { data, error } = await supabase
+        .from("workouts")
+        .insert([
+          {
+            title: workoutTitle.trim(),
+            date: format(date, "yyyy-MM-dd"),
+            user_id: userData.user.id,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating workout:", error);
+        return;
+      }
+
+      // Update UI state directly
+      setWorkouts((prev) => [{ ...data, exercises: [] }, ...prev]);
+      setWorkoutTitle("");
+    } finally {
+      setIsCreating(false);
     }
-
-    setWorkoutTitle("");
-    setSelectedWorkout(data.id);
-    fetchWorkouts();
   }
 
   async function handleStrengthSubmit(e: React.FormEvent) {
@@ -189,7 +209,8 @@ export default function WorkoutsPage() {
       const { data, error } = await supabase
         .from("exercises")
         .insert([exerciseData])
-        .select();
+        .select()
+        .single();
 
       if (error) {
         console.error("Error saving exercise:", {
@@ -205,7 +226,13 @@ export default function WorkoutsPage() {
 
       setExerciseForm({ name: "", reps: "", weight: "" });
       setSelectedType(null);
-      fetchWorkouts();
+      setWorkouts((prev) =>
+        prev.map((workout) =>
+          workout.id === selectedWorkout
+            ? { ...workout, exercises: [...workout.exercises, data] }
+            : workout
+        )
+      );
     } catch (err) {
       console.error("Unexpected error:", err);
     }
@@ -228,9 +255,9 @@ export default function WorkoutsPage() {
 
     const exerciseData = {
       workout_id: selectedWorkout,
-      type: "cardio",
+      type: "cardio" as const,
       name: exerciseForm.name,
-      duration: time || null,
+      duration: time || undefined,
       user_id: userData.user.id,
     };
 
@@ -240,7 +267,8 @@ export default function WorkoutsPage() {
       const { data, error } = await supabase
         .from("exercises")
         .insert([exerciseData])
-        .select();
+        .select()
+        .single();
 
       if (error) {
         console.error("Error saving exercise:", {
@@ -258,7 +286,13 @@ export default function WorkoutsPage() {
       setTime(0);
       setIsRunning(false);
       setSelectedType(null);
-      fetchWorkouts();
+      setWorkouts((prev) =>
+        prev.map((workout) =>
+          workout.id === selectedWorkout
+            ? { ...workout, exercises: [...workout.exercises, data] }
+            : workout
+        )
+      );
     } catch (err) {
       console.error("Unexpected error:", err);
     }
@@ -279,9 +313,12 @@ export default function WorkoutsPage() {
       ...(editingExercise.type === "strength" && {
         reps: parseInt(exerciseForm.reps),
         weight: parseFloat(exerciseForm.weight),
+        duration: undefined,
       }),
       ...(editingExercise.type === "cardio" && {
-        duration: time || null,
+        duration: time || undefined,
+        reps: undefined,
+        weight: undefined,
       }),
     };
 
@@ -296,11 +333,23 @@ export default function WorkoutsPage() {
         return;
       }
 
+      const updatedExercise: Exercise = {
+        ...editingExercise,
+        ...exerciseData,
+      };
+
       setEditingExercise(null);
       setExerciseForm({ name: "", reps: "", weight: "" });
       setTime(0);
       setIsRunning(false);
-      fetchWorkouts();
+      setWorkouts((prev) =>
+        prev.map((workout) => ({
+          ...workout,
+          exercises: workout.exercises.map((exercise) =>
+            exercise.id === editingExercise.id ? updatedExercise : exercise
+          ),
+        }))
+      );
     } catch (err) {
       console.error("Unexpected error:", err);
     }
@@ -318,7 +367,14 @@ export default function WorkoutsPage() {
         return;
       }
 
-      fetchWorkouts();
+      setWorkouts((prev) =>
+        prev.map((workout) => ({
+          ...workout,
+          exercises: workout.exercises.filter(
+            (exercise) => exercise.id !== exerciseId
+          ),
+        }))
+      );
     } catch (err) {
       console.error("Unexpected error:", err);
     }
@@ -334,6 +390,14 @@ export default function WorkoutsPage() {
     if (exercise.type === "cardio" && exercise.duration) {
       setTime(exercise.duration);
     }
+
+    // Add smooth scrolling after a short delay to ensure the form is rendered
+    setTimeout(() => {
+      const editForm = document.getElementById(`edit-${exercise.id}`);
+      if (editForm) {
+        editForm.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
   }
 
   // Group workouts by date
@@ -346,65 +410,127 @@ export default function WorkoutsPage() {
     return acc;
   }, {} as Record<string, Workout[]>);
 
+  async function handleSaveExercise(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedWorkout || !selectedType) return;
+
+    try {
+      setIsSaving(true);
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const exerciseData = {
+        name: exerciseForm.name,
+        type: selectedType,
+        reps: selectedType === "strength" ? Number(exerciseForm.reps) : null,
+        weight:
+          selectedType === "strength" ? Number(exerciseForm.weight) : null,
+        duration: selectedType === "cardio" ? time : null,
+        workout_id: selectedWorkout,
+        user_id: userData.user.id,
+      };
+
+      if (editingExercise) {
+        const { error } = await supabase
+          .from("exercises")
+          .update(exerciseData)
+          .eq("id", editingExercise.id)
+          .eq("user_id", userData.user.id);
+
+        if (error) {
+          console.error("Error updating exercise:", error);
+          return;
+        }
+
+        // Update UI state directly
+        setWorkouts((prev) =>
+          prev.map((workout) => ({
+            ...workout,
+            exercises: workout.exercises.map((ex) =>
+              ex.id === editingExercise.id
+                ? { ...ex, ...exerciseData, type: selectedType }
+                : ex
+            ),
+          }))
+        );
+      } else {
+        const { data, error } = await supabase
+          .from("exercises")
+          .insert([exerciseData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Error creating exercise:", error);
+          return;
+        }
+
+        // Update UI state directly
+        setWorkouts((prev) =>
+          prev.map((workout) =>
+            workout.id === selectedWorkout
+              ? {
+                  ...workout,
+                  exercises: [
+                    ...workout.exercises,
+                    { ...data, type: selectedType as "cardio" | "strength" },
+                  ],
+                }
+              : workout
+          )
+        );
+      }
+
+      // Reset form
+      setSelectedType(null);
+      setExerciseForm({ name: "", reps: "", weight: "" });
+      setTime(0);
+      setIsRunning(false);
+      setEditingExercise(null);
+      setSelectedWorkout(null);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Workouts</h1>
 
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Create Workout</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateWorkout} className="flex gap-4">
+              <Input
+                placeholder="Enter workout title"
+                value={workoutTitle}
+                onChange={(e) => setWorkoutTitle(e.target.value)}
+                className="flex-1"
+              />
+              <Button type="submit" disabled={isCreating}>
+                {isCreating ? (
+                  <LoadingSpinner className="w-4 h-4 mr-2" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Create Workout
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Workout History */}
         <div className="grid gap-8">
-          {/* Create Workout Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New Workout</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleCreateWorkout} className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Workout Title</Label>
-                  <Input
-                    id="title"
-                    value={workoutTitle}
-                    onChange={(e) => setWorkoutTitle(e.target.value)}
-                    placeholder="Enter workout title..."
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "justify-start text-left font-normal",
-                          !date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={(date: Date | undefined) =>
-                          date && setDate(date)
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <Button type="submit">Create Workout</Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Workout History */}
-          <div className="grid gap-8">
-            {Object.entries(groupedWorkouts)
+          {isLoading ? (
+            <>
+              <LoadingCard title="Today's Workout" />
+              <LoadingCard title="Previous Workout" />
+            </>
+          ) : (
+            Object.entries(groupedWorkouts)
               .sort(
                 (a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()
               )
@@ -444,54 +570,224 @@ export default function WorkoutsPage() {
                         {/* Exercise List */}
                         <div className="grid gap-4">
                           {workout.exercises.map((exercise) => (
-                            <div
-                              key={exercise.id}
-                              className="flex justify-between items-center p-2 border rounded"
-                            >
-                              <div>
-                                <p className="font-medium">{exercise.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {exercise.type}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <div className="text-right">
-                                  {exercise.type === "cardio" ? (
-                                    <p>{formatTime(exercise.duration || 0)}</p>
-                                  ) : (
-                                    <p>
-                                      {exercise.reps} reps @ {exercise.weight}{" "}
-                                      lbs
-                                    </p>
-                                  )}
+                            <div key={exercise.id}>
+                              <div className="flex justify-between items-center p-2 border rounded">
+                                <div>
+                                  <p className="font-medium">{exercise.name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {exercise.type}
+                                  </p>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => startEditingExercise(exercise)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleDeleteExercise(exercise.id)
-                                  }
-                                  className="text-destructive"
-                                >
-                                  Delete
-                                </Button>
+                                <div className="flex items-center gap-4">
+                                  <div className="text-right">
+                                    {exercise.type === "cardio" ? (
+                                      <p>
+                                        {formatTime(exercise.duration || 0)}
+                                      </p>
+                                    ) : (
+                                      <p>
+                                        {exercise.reps} reps @ {exercise.weight}{" "}
+                                        lbs
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedWorkout(null);
+                                      startEditingExercise(exercise);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleDeleteExercise(exercise.id)
+                                    }
+                                    className="text-destructive"
+                                  >
+                                    Delete
+                                  </Button>
+                                </div>
                               </div>
+
+                              {/* Edit Form - Appears directly under the exercise */}
+                              {editingExercise?.id === exercise.id && (
+                                <div
+                                  className="mt-2 p-4 border rounded bg-accent/10"
+                                  id={`edit-${exercise.id}`}
+                                >
+                                  <form
+                                    onSubmit={handleSaveExercise}
+                                    className="grid gap-4"
+                                  >
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="name">
+                                        Exercise Name
+                                      </Label>
+                                      <Input
+                                        id="name"
+                                        value={exerciseForm.name}
+                                        onChange={(e) =>
+                                          setExerciseForm({
+                                            ...exerciseForm,
+                                            name: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Enter exercise name..."
+                                      />
+                                    </div>
+
+                                    {editingExercise.type === "strength" ? (
+                                      <>
+                                        <div className="grid gap-2">
+                                          <Label htmlFor="reps">Reps</Label>
+                                          <Input
+                                            id="reps"
+                                            type="number"
+                                            value={exerciseForm.reps}
+                                            onChange={(e) =>
+                                              setExerciseForm({
+                                                ...exerciseForm,
+                                                reps: e.target.value,
+                                              })
+                                            }
+                                            placeholder="Enter number of reps..."
+                                          />
+                                        </div>
+                                        <div className="grid gap-2">
+                                          <Label htmlFor="weight">
+                                            Weight (lbs)
+                                          </Label>
+                                          <Input
+                                            id="weight"
+                                            type="number"
+                                            step="0.01"
+                                            value={exerciseForm.weight}
+                                            onChange={(e) =>
+                                              setExerciseForm({
+                                                ...exerciseForm,
+                                                weight: e.target.value,
+                                              })
+                                            }
+                                            placeholder="Enter weight in pounds..."
+                                          />
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            type="submit"
+                                            disabled={isSaving}
+                                          >
+                                            {isSaving ? (
+                                              <LoadingSpinner className="w-4 h-4 mr-2" />
+                                            ) : null}
+                                            Update
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => {
+                                              setEditingExercise(null);
+                                              setExerciseForm({
+                                                name: "",
+                                                reps: "",
+                                                weight: "",
+                                              });
+                                            }}
+                                            disabled={isSaving}
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="grid gap-4">
+                                        <div className="text-4xl font-mono text-center">
+                                          {formatTime(time)}
+                                        </div>
+                                        <div className="flex gap-4 justify-center">
+                                          <Button
+                                            type="button"
+                                            onClick={() =>
+                                              setIsRunning(!isRunning)
+                                            }
+                                            variant={
+                                              isRunning
+                                                ? "destructive"
+                                                : "default"
+                                            }
+                                          >
+                                            {isRunning ? "Stop" : "Start"}
+                                          </Button>
+                                          <div className="flex gap-2">
+                                            <Input
+                                              type="number"
+                                              value={Math.floor(time / 60000)}
+                                              onChange={(e) => {
+                                                const minutes =
+                                                  parseInt(e.target.value) || 0;
+                                                setTime(minutes * 60000);
+                                              }}
+                                              className="w-20"
+                                              placeholder="Min"
+                                            />
+                                            <Input
+                                              type="number"
+                                              value={Math.floor(
+                                                (time % 60000) / 1000
+                                              )}
+                                              onChange={(e) => {
+                                                const seconds =
+                                                  parseInt(e.target.value) || 0;
+                                                setTime(
+                                                  Math.floor(time / 60000) *
+                                                    60000 +
+                                                    seconds * 1000
+                                                );
+                                              }}
+                                              className="w-20"
+                                              placeholder="Sec"
+                                            />
+                                          </div>
+                                          <Button
+                                            type="submit"
+                                            disabled={!exerciseForm.name}
+                                          >
+                                            Update
+                                          </Button>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          onClick={() => {
+                                            setEditingExercise(null);
+                                            setExerciseForm({
+                                              name: "",
+                                              reps: "",
+                                              weight: "",
+                                            });
+                                            setTime(0);
+                                            setIsRunning(false);
+                                          }}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </form>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
 
-                        {/* Add/Edit Exercise Form */}
-                        {(selectedWorkout === workout.id ||
-                          editingExercise) && (
+                        {/* Add Exercise Form - Only show when adding new exercise */}
+                        {selectedWorkout === workout.id && !editingExercise && (
                           <div className="mt-4">
-                            {!selectedType && !editingExercise ? (
+                            {!selectedType ? (
                               <div className="flex gap-4">
                                 <Button
                                   onClick={() => setSelectedType("strength")}
@@ -508,13 +804,7 @@ export default function WorkoutsPage() {
                               </div>
                             ) : (
                               <form
-                                onSubmit={
-                                  editingExercise
-                                    ? handleEditExercise
-                                    : selectedType === "strength"
-                                    ? handleStrengthSubmit
-                                    : handleCardioSubmit
-                                }
+                                onSubmit={handleSaveExercise}
                                 className="grid gap-4"
                               >
                                 <div className="grid gap-2">
@@ -532,8 +822,7 @@ export default function WorkoutsPage() {
                                   />
                                 </div>
 
-                                {selectedType === "strength" ||
-                                editingExercise?.type === "strength" ? (
+                                {selectedType === "strength" ? (
                                   <>
                                     <div className="grid gap-2">
                                       <Label htmlFor="reps">Reps</Label>
@@ -567,6 +856,29 @@ export default function WorkoutsPage() {
                                         }
                                         placeholder="Enter weight in pounds..."
                                       />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button type="submit" disabled={isSaving}>
+                                        {isSaving ? (
+                                          <LoadingSpinner className="w-4 h-4 mr-2" />
+                                        ) : null}
+                                        Save
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setSelectedType(null);
+                                          setExerciseForm({
+                                            name: "",
+                                            reps: "",
+                                            weight: "",
+                                          });
+                                        }}
+                                        disabled={isSaving}
+                                      >
+                                        Cancel
+                                      </Button>
                                     </div>
                                   </>
                                 ) : (
@@ -617,37 +929,27 @@ export default function WorkoutsPage() {
                                         type="submit"
                                         disabled={!exerciseForm.name}
                                       >
-                                        {editingExercise ? "Update" : "Save"}
+                                        Save
                                       </Button>
                                     </div>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setSelectedType(null);
+                                        setExerciseForm({
+                                          name: "",
+                                          reps: "",
+                                          weight: "",
+                                        });
+                                        setTime(0);
+                                        setIsRunning(false);
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
                                   </div>
                                 )}
-
-                                <div className="flex gap-2">
-                                  {(selectedType === "strength" ||
-                                    editingExercise?.type === "strength") && (
-                                    <Button type="submit">
-                                      {editingExercise ? "Update" : "Save"}
-                                    </Button>
-                                  )}
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setSelectedType(null);
-                                      setEditingExercise(null);
-                                      setExerciseForm({
-                                        name: "",
-                                        reps: "",
-                                        weight: "",
-                                      });
-                                      setTime(0);
-                                      setIsRunning(false);
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
                               </form>
                             )}
                           </div>
@@ -656,8 +958,8 @@ export default function WorkoutsPage() {
                     </Card>
                   ))}
                 </div>
-              ))}
-          </div>
+              ))
+          )}
         </div>
       </div>
     </MainLayout>

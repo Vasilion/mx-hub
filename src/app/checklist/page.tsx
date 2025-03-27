@@ -64,6 +64,7 @@ export default function ChecklistPage() {
     (RidingChecklist & { motos: MotoChecklist[] })[]
   >([]);
   const [date, setDate] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -159,12 +160,16 @@ export default function ChecklistPage() {
         return;
       }
 
-      const { error } = await supabase.from("riding_checklists").insert([
-        {
-          user_id: userData.user.id,
-          date: dateStr,
-        },
-      ]);
+      const { data, error } = await supabase
+        .from("riding_checklists")
+        .insert([
+          {
+            user_id: userData.user.id,
+            date: dateStr,
+          },
+        ])
+        .select()
+        .single();
 
       if (error) {
         console.error("Error creating checklist:", error);
@@ -181,7 +186,10 @@ export default function ChecklistPage() {
         description: `Created new checklist for ${format(date, "PPP")}.`,
       });
       setDate(new Date());
-      await fetchChecklists();
+
+      // Update UI state directly
+      const newChecklist = { ...data, motos: [] };
+      setChecklists((prev) => [newChecklist, ...prev]);
     } finally {
       setIsCreating(false);
     }
@@ -202,7 +210,14 @@ export default function ChecklistPage() {
       return;
     }
 
-    fetchChecklists();
+    // Update UI state directly
+    setChecklists((prev) =>
+      prev.map((checklist) =>
+        checklist.id === checklistId
+          ? { ...checklist, [field]: value }
+          : checklist
+      )
+    );
   };
 
   const handleAddMoto = async (checklistId: string) => {
@@ -214,20 +229,31 @@ export default function ChecklistPage() {
 
     const nextMotoNumber = checklist.motos.length + 1;
 
-    const { error } = await supabase.from("moto_checklists").insert([
-      {
-        user_id: userData.user.id,
-        riding_checklist_id: checklistId,
-        moto_number: nextMotoNumber,
-      },
-    ]);
+    const { data, error } = await supabase
+      .from("moto_checklists")
+      .insert([
+        {
+          user_id: userData.user.id,
+          riding_checklist_id: checklistId,
+          moto_number: nextMotoNumber,
+        },
+      ])
+      .select()
+      .single();
 
     if (error) {
       console.error("Error adding moto:", error);
       return;
     }
 
-    fetchChecklists();
+    // Update UI state directly
+    setChecklists((prev) =>
+      prev.map((checklist) =>
+        checklist.id === checklistId
+          ? { ...checklist, motos: [...checklist.motos, data] }
+          : checklist
+      )
+    );
   };
 
   const handleUpdateMoto = async (
@@ -245,7 +271,15 @@ export default function ChecklistPage() {
       return;
     }
 
-    fetchChecklists();
+    // Update UI state directly
+    setChecklists((prev) =>
+      prev.map((checklist) => ({
+        ...checklist,
+        motos: checklist.motos.map((moto) =>
+          moto.id === motoId ? { ...moto, [field]: value } : moto
+        ),
+      }))
+    );
   };
 
   const handleDeleteMoto = async (motoId: string) => {
@@ -259,7 +293,13 @@ export default function ChecklistPage() {
       return;
     }
 
-    fetchChecklists();
+    // Update UI state directly
+    setChecklists((prev) =>
+      prev.map((checklist) => ({
+        ...checklist,
+        motos: checklist.motos.filter((moto) => moto.id !== motoId),
+      }))
+    );
   };
 
   const toggleCard = (id: string) => {
@@ -278,15 +318,15 @@ export default function ChecklistPage() {
     <MainLayout>
       <Toaster />
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <h1 className="text-3xl font-bold">Riding Checklist</h1>
-          <div className="flex items-center gap-2">
-            <Popover>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-[240px] justify-start text-left font-normal",
+                    "w-full sm:w-[240px] justify-start text-left font-normal",
                     !date && "text-muted-foreground"
                   )}
                 >
@@ -298,12 +338,21 @@ export default function ChecklistPage() {
                 <Calendar
                   mode="single"
                   selected={date}
-                  onSelect={(date) => date && setDate(date)}
+                  onSelect={(newDate) => {
+                    if (newDate) {
+                      setDate(newDate);
+                      setCalendarOpen(false);
+                    }
+                  }}
                   initialFocus
                 />
               </PopoverContent>
             </Popover>
-            <Button onClick={handleCreateChecklist} disabled={isCreating}>
+            <Button
+              onClick={handleCreateChecklist}
+              disabled={isCreating}
+              className="whitespace-nowrap"
+            >
               {isCreating ? (
                 <LoadingSpinner className="w-4 h-4 mr-2" />
               ) : (
@@ -338,10 +387,8 @@ export default function ChecklistPage() {
                         </CardTitle>
                         <ChevronDown
                           className={cn(
-                            "h-4 w-4",
-                            expandedCards.has(checklist.id)
-                              ? "transform rotate-180"
-                              : ""
+                            "h-4 w-4 transition-transform duration-200",
+                            expandedCards.has(checklist.id) ? "rotate-180" : ""
                           )}
                         />
                       </div>
@@ -354,7 +401,7 @@ export default function ChecklistPage() {
                           <h3 className="text-lg font-semibold mb-4">
                             Pre-Ride Checklist
                           </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {Object.entries({
                               chain_tension: "Chain Tension",
                               chain_lube: "Chain Lube",
@@ -407,6 +454,7 @@ export default function ChecklistPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleAddMoto(checklist.id)}
+                              className="whitespace-nowrap"
                             >
                               <Plus className="w-4 h-4 mr-2" />
                               Add Moto
@@ -432,7 +480,7 @@ export default function ChecklistPage() {
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {Object.entries({
                                       fluids: "Fluids",
                                       chain_tension: "Chain Tension",

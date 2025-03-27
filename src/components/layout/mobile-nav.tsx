@@ -4,43 +4,64 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import {
+  Menu,
+  X,
+  Home,
+  Dumbbell,
+  StickyNote,
+  Settings,
+  Mountain,
+  Timer,
+  ClipboardCheck,
+  LogOut,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 const routes = [
   {
     href: "/",
     label: "Home",
+    icon: Home,
   },
   {
     href: "/workouts",
     label: "Workouts",
+    icon: Dumbbell,
   },
   {
     href: "/notes",
     label: "Notes",
+    icon: StickyNote,
   },
   {
     href: "/suspension",
     label: "Suspension",
+    icon: Settings,
   },
   {
     href: "/tracks",
     label: "Tracks",
+    icon: Mountain,
   },
   {
     href: "/lap-times",
     label: "Lap Times",
+    icon: Timer,
   },
   {
     href: "/checklist",
     label: "Riding Checklist",
+    icon: ClipboardCheck,
   },
 ];
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -53,6 +74,11 @@ export function MobileNav() {
     document.body.style.overflow = "unset";
     // Scroll to top of page
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
   };
 
   return (
@@ -82,21 +108,34 @@ export function MobileNav() {
           </div>
           <div className="flex-1 overflow-auto py-4 bg-white dark:bg-gray-950">
             <nav className="container flex flex-col space-y-4">
-              {routes.map((route) => (
-                <Link
-                  key={route.href}
-                  href={route.href}
-                  onClick={handleLinkClick}
-                  className={cn(
-                    "text-lg font-medium transition-colors hover:text-primary px-4 py-3 rounded-md",
-                    pathname === route.href
-                      ? "text-primary bg-primary/10"
-                      : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                >
-                  {route.label}
-                </Link>
-              ))}
+              {routes.map((route) => {
+                const Icon = route.icon;
+                return (
+                  <Link
+                    key={route.href}
+                    href={route.href}
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "text-lg font-medium transition-colors hover:text-primary px-4 py-3 rounded-md flex items-center gap-3",
+                      pathname === route.href
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {route.label}
+                  </Link>
+                );
+              })}
+              <div className="h-0.5 w-full bg-destructive/50 my-2" />
+              <Button
+                variant="ghost"
+                className="text-lg font-medium text-muted-foreground hover:text-destructive px-4 py-3 rounded-md flex items-center gap-3 justify-start"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-5 w-5" />
+                Logout
+              </Button>
             </nav>
           </div>
         </div>

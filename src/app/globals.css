@@ -4,33 +4,33 @@
 
 @layer base {
   :root {
-    --background: 0 0% 3%;
-    --foreground: 0 0% 98%;
+    --background: 30 25% 97%;
+    --foreground: 346 40% 15%;
 
-    --card: 0 0% 2%;
-    --card-foreground: 0 0% 98%;
+    --card: 30 20% 99%;
+    --card-foreground: 346 40% 15%;
 
-    --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 30 20% 99%;
+    --popover-foreground: 346 40% 15%;
 
-    --primary: 0 100% 45%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 346 77.8% 49.2%;
+    --primary-foreground: 355.7 100% 97.3%;
 
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 30 25% 94%;
+    --secondary-foreground: 346 40% 15%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 30 25% 94%;
+    --muted-foreground: 346 40% 35%;
 
-    --accent: 0 100% 45%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 346 60% 96%;
+    --accent-foreground: 346 77.8% 49.2%;
 
-    --destructive: 0 100% 45%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 0 100% 45%;
+    --border: 30 25% 90%;
+    --input: 30 25% 90%;
+    --ring: 346 77.8% 49.2%;
 
     --radius: 0.5rem;
   }
@@ -140,12 +140,9 @@
       linear-gradient(to bottom, hsl(var(--primary) / 10%) 1px, transparent 1px);
     background-size: 20px 20px;
   }
-}
 
-@layer components {
-  /* Tech UI Elements */
   .tech-frame {
-    @apply relative;
+    @apply relative bg-card border border-border/50;
     clip-path: polygon(
       0 0,
       calc(100% - 16px) 0,
@@ -155,7 +152,10 @@
       0 calc(100% - 16px)
     );
   }
+}
 
+@layer components {
+  /* Tech UI Elements */
   .tech-border {
     @apply relative;
     &::before {

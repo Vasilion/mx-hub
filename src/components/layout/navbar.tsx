@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   LogOut,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const routes = [
   {
@@ -87,6 +88,7 @@ export function Navbar() {
         })}
       </div>
       <div className="mx-6 h-6 w-0.5 bg-destructive/50" />
+      <ThemeToggle />
       <Button
         variant="ghost"
         className="text-sm font-medium text-muted-foreground hover:text-destructive flex items-center gap-2"

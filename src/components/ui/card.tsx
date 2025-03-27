@@ -9,13 +9,11 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-none border border-primary/20 shadow-sm relative",
-      "bg-black/40 backdrop-blur-sm",
+      "rounded-none border border-primary/20 bg-card shadow-sm relative",
       "before:absolute before:inset-0 before:border-t before:border-primary/20",
       "after:absolute after:top-0 after:left-0 after:h-1 after:w-24 after:bg-primary/50",
       "[clip-path:polygon(0_0,calc(100%-16px)_0,100%_16px,100%_100%,16px_100%,0_calc(100%-16px))]",
-      // Glass reflection effect
-      "before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/5 before:to-transparent before:pointer-events-none",
+      "before:absolute before:inset-0 before:bg-gradient-to-b before:from-primary/5 before:to-transparent before:pointer-events-none",
       className
     )}
     {...props}

@@ -12,6 +12,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
+import { Edit, Trash2 } from "lucide-react";
 
 interface SuspensionSettings {
   id?: string;
@@ -20,6 +21,7 @@ interface SuspensionSettings {
   shock_high_speed_compression: number | null;
   shock_low_speed_compression: number | null;
   shock_rebound: number | null;
+  shock_sag: number | null;
   notes: string;
   created_at?: string;
 }
@@ -32,6 +34,7 @@ export default function SuspensionPage() {
     shock_high_speed_compression: null,
     shock_low_speed_compression: null,
     shock_rebound: null,
+    shock_sag: null,
     notes: "",
   });
   const [savedSettings, setSavedSettings] = useState<SuspensionSettings[]>([]);
@@ -119,6 +122,7 @@ export default function SuspensionPage() {
         shock_high_speed_compression: null,
         shock_low_speed_compression: null,
         shock_rebound: null,
+        shock_sag: null,
         notes: "",
       });
       setEditingId(null);
@@ -134,6 +138,7 @@ export default function SuspensionPage() {
       shock_high_speed_compression: setting.shock_high_speed_compression,
       shock_low_speed_compression: setting.shock_low_speed_compression,
       shock_rebound: setting.shock_rebound,
+      shock_sag: setting.shock_sag,
       notes: setting.notes,
     });
     setEditingId(setting.id ?? null);
@@ -185,56 +190,105 @@ export default function SuspensionPage() {
           ) : (
             <div className="grid gap-4">
               {savedSettings.map((setting) => (
-                <Card key={setting.id}>
-                  <CardHeader>
-                    <CardTitle className="text-sm text-muted-foreground">
-                      {format(new Date(setting.created_at!), "PPP")}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <h3 className="font-semibold mb-2">Fork Settings</h3>
-                        <p>Compression: {setting.fork_compression}</p>
-                        <p>Rebound: {setting.fork_rebound}</p>
+                <div key={setting.id} className="relative">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex justify-between items-center">
+                        <CardTitle>
+                          {format(
+                            new Date(setting.created_at || ""),
+                            "MMMM do, yyyy"
+                          )}
+                        </CardTitle>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(setting)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => handleDelete(setting.id || "")}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold mb-2">Shock Settings</h3>
-                        <p>
-                          High Speed Compression:{" "}
-                          {setting.shock_high_speed_compression}
-                        </p>
-                        <p>
-                          Low Speed Compression:{" "}
-                          {setting.shock_low_speed_compression}
-                        </p>
-                        <p>Rebound: {setting.shock_rebound}</p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">
+                            Fork Settings
+                          </h3>
+                          <ul className="space-y-2">
+                            <li className="flex justify-between items-center">
+                              <span className="text-muted-foreground">
+                                Compression
+                              </span>
+                              <span>{setting.fork_compression} clicks</span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                              <span className="text-muted-foreground">
+                                Rebound
+                              </span>
+                              <span>{setting.fork_rebound} clicks</span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">
+                            Shock Settings
+                          </h3>
+                          <ul className="space-y-2">
+                            <li className="flex justify-between items-center">
+                              <span className="text-muted-foreground">
+                                High Speed Compression
+                              </span>
+                              <span>
+                                {setting.shock_high_speed_compression} clicks
+                              </span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                              <span className="text-muted-foreground">
+                                Low Speed Compression
+                              </span>
+                              <span>
+                                {setting.shock_low_speed_compression} clicks
+                              </span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                              <span className="text-muted-foreground">
+                                Rebound
+                              </span>
+                              <span>{setting.shock_rebound} clicks</span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Sag</span>
+                              <span>{setting.shock_sag} mm</span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        {setting.notes && (
+                          <div>
+                            <h3 className="text-lg font-semibold mb-2">
+                              Notes
+                            </h3>
+                            <p className="text-muted-foreground">
+                              {setting.notes}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    {setting.notes && (
-                      <div>
-                        <h3 className="font-semibold mb-2">Notes</h3>
-                        <p className="whitespace-pre-wrap">{setting.notes}</p>
-                      </div>
-                    )}
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => handleEdit(setting)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        onClick={() => handleDelete(setting.id!)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
               ))}
             </div>
           )}
@@ -342,6 +396,23 @@ export default function SuspensionPage() {
                     placeholder="Enter rebound clicks"
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="shock_sag">Sag</Label>
+                  <Input
+                    id="shock_sag"
+                    type="number"
+                    value={settings.shock_sag ?? ""}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        shock_sag: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      })
+                    }
+                    placeholder="Enter sag in millimeters"
+                  />
+                </div>
               </CardContent>
             </Card>
 
@@ -361,31 +432,33 @@ export default function SuspensionPage() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="mb-8" disabled={isSaving}>
-              {isSaving ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
-              {editingId ? "Update Settings" : "Save Settings"}
-            </Button>
-            {editingId && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setSettings({
-                    fork_compression: null,
-                    fork_rebound: null,
-                    shock_high_speed_compression: null,
-                    shock_low_speed_compression: null,
-                    shock_rebound: null,
-                    notes: "",
-                  });
-                  setEditingId(null);
-                }}
-                className="ml-2"
-                disabled={isSaving}
-              >
-                Cancel Edit
+            <div className="flex justify-end gap-2 mb-8">
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
+                {editingId ? "Update Settings" : "Save Settings"}
               </Button>
-            )}
+              {editingId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSettings({
+                      fork_compression: null,
+                      fork_rebound: null,
+                      shock_high_speed_compression: null,
+                      shock_low_speed_compression: null,
+                      shock_rebound: null,
+                      shock_sag: null,
+                      notes: "",
+                    });
+                    setEditingId(null);
+                  }}
+                  disabled={isSaving}
+                >
+                  Cancel Edit
+                </Button>
+              )}
+            </div>
           </form>
         </div>
       </div>

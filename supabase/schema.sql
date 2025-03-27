@@ -16,6 +16,7 @@ CREATE TABLE suspension_settings (
   shock_high_speed_compression INTEGER NOT NULL,
   shock_low_speed_compression INTEGER NOT NULL,
   shock_rebound INTEGER NOT NULL,
+  shock_sag INTEGER NOT NULL,
   notes TEXT,
   user_id UUID REFERENCES auth.users(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL

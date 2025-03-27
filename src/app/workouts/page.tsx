@@ -14,7 +14,14 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarIcon,
+  Plus,
+  Trash2,
+  Square,
+  Play,
+  RotateCcw,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LoadingCard } from "@/components/ui/loading-card";
@@ -658,24 +665,34 @@ export default function WorkoutsPage() {
                       <CardHeader>
                         <div className="flex justify-between items-center">
                           <CardTitle>{workout.title}</CardTitle>
-                          {selectedWorkout !== workout.id ? (
+                          <div className="flex items-center gap-2">
+                            {selectedWorkout !== workout.id ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedWorkout(workout.id)}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Exercise
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedWorkout(null)}
+                              >
+                                Cancel
+                              </Button>
+                            )}
                             <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedWorkout(workout.id)}
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                              onClick={() => handleDeleteWorkout(workout.id)}
                             >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Exercise
+                              <Trash2 className="h-5 w-5" />
                             </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedWorkout(null)}
-                            >
-                              Cancel
-                            </Button>
-                          )}
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -805,7 +822,7 @@ export default function WorkoutsPage() {
                                             placeholder="Enter weight in pounds..."
                                           />
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex justify-end gap-2">
                                           <Button
                                             type="submit"
                                             disabled={isSaving}
@@ -835,77 +852,77 @@ export default function WorkoutsPage() {
                                       </>
                                     ) : (
                                       <div className="grid gap-4">
-                                        <div className="text-4xl font-mono text-center">
-                                          {formatTime(time)}
-                                        </div>
-                                        <div className="flex gap-4 justify-center">
-                                          <Button
-                                            type="button"
-                                            onClick={() =>
-                                              setIsRunning(!isRunning)
-                                            }
-                                            variant={
-                                              isRunning
-                                                ? "destructive"
-                                                : "default"
-                                            }
-                                          >
-                                            {isRunning ? "Stop" : "Start"}
-                                          </Button>
-                                          <div className="flex gap-2">
-                                            <Input
-                                              type="number"
-                                              value={Math.floor(time / 60000)}
-                                              onChange={(e) => {
-                                                const minutes =
-                                                  parseInt(e.target.value) || 0;
-                                                setTime(minutes * 60000);
-                                              }}
-                                              className="w-20"
-                                              placeholder="Min"
-                                            />
-                                            <Input
-                                              type="number"
-                                              value={Math.floor(
-                                                (time % 60000) / 1000
-                                              )}
-                                              onChange={(e) => {
-                                                const seconds =
-                                                  parseInt(e.target.value) || 0;
-                                                setTime(
-                                                  Math.floor(time / 60000) *
-                                                    60000 +
-                                                    seconds * 1000
-                                                );
-                                              }}
-                                              className="w-20"
-                                              placeholder="Sec"
-                                            />
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                          <div className="flex-1 min-w-[200px]">
+                                            <Label>Duration</Label>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <div className="text-2xl font-mono">
+                                                {formatTime(time)}
+                                              </div>
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  type="button"
+                                                  variant="outline"
+                                                  size="icon"
+                                                  onClick={() =>
+                                                    setIsRunning(!isRunning)
+                                                  }
+                                                  className={
+                                                    isRunning
+                                                      ? "text-destructive"
+                                                      : ""
+                                                  }
+                                                >
+                                                  {isRunning ? (
+                                                    <Square className="h-4 w-4" />
+                                                  ) : (
+                                                    <Play className="h-4 w-4" />
+                                                  )}
+                                                </Button>
+                                                <Button
+                                                  type="button"
+                                                  variant="outline"
+                                                  size="icon"
+                                                  onClick={() => {
+                                                    setTime(0);
+                                                    setIsRunning(false);
+                                                  }}
+                                                >
+                                                  <RotateCcw className="h-4 w-4" />
+                                                </Button>
+                                              </div>
+                                            </div>
                                           </div>
-                                          <Button
-                                            type="submit"
-                                            disabled={!exerciseForm.name}
-                                          >
-                                            Update
-                                          </Button>
+                                          <div className="flex gap-2 mt-4 sm:mt-0">
+                                            <Button
+                                              type="submit"
+                                              disabled={isSaving}
+                                            >
+                                              {isSaving ? (
+                                                <LoadingSpinner className="w-4 h-4 mr-2" />
+                                              ) : null}
+                                              Update
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              onClick={() => {
+                                                setEditingExercise(null);
+                                                setExerciseForm({
+                                                  name: "",
+                                                  reps: "",
+                                                  weight: "",
+                                                  sets: "",
+                                                });
+                                                setTime(0);
+                                                setIsRunning(false);
+                                              }}
+                                              disabled={isSaving}
+                                            >
+                                              Cancel
+                                            </Button>
+                                          </div>
                                         </div>
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          onClick={() => {
-                                            setEditingExercise(null);
-                                            setExerciseForm({
-                                              name: "",
-                                              reps: "",
-                                              weight: "",
-                                              sets: "",
-                                            });
-                                            setTime(0);
-                                            setIsRunning(false);
-                                          }}
-                                        >
-                                          Cancel
-                                        </Button>
                                       </div>
                                     )}
                                   </form>
@@ -1003,7 +1020,7 @@ export default function WorkoutsPage() {
                                         placeholder="Enter weight in pounds..."
                                       />
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex justify-end gap-2">
                                       <Button type="submit" disabled={isSaving}>
                                         {isSaving ? (
                                           <LoadingSpinner className="w-4 h-4 mr-2" />
@@ -1030,90 +1047,99 @@ export default function WorkoutsPage() {
                                   </>
                                 ) : (
                                   <div className="grid gap-4">
-                                    <div className="text-4xl font-mono text-center">
-                                      {formatTime(time)}
-                                    </div>
-                                    <div className="flex gap-4 justify-center">
-                                      <Button
-                                        type="button"
-                                        onClick={() => setIsRunning(!isRunning)}
-                                        variant={
-                                          isRunning ? "destructive" : "default"
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="name">
+                                        Exercise Name
+                                      </Label>
+                                      <Input
+                                        id="name"
+                                        value={exerciseForm.name}
+                                        onChange={(e) =>
+                                          setExerciseForm({
+                                            ...exerciseForm,
+                                            name: e.target.value,
+                                          })
                                         }
-                                      >
-                                        {isRunning ? "Stop" : "Start"}
-                                      </Button>
-                                      <div className="flex gap-2">
-                                        <Input
-                                          type="number"
-                                          value={Math.floor(time / 60000)}
-                                          onChange={(e) => {
-                                            const minutes =
-                                              parseInt(e.target.value) || 0;
-                                            setTime(minutes * 60000);
-                                          }}
-                                          className="w-20"
-                                          placeholder="Min"
-                                        />
-                                        <Input
-                                          type="number"
-                                          value={Math.floor(
-                                            (time % 60000) / 1000
-                                          )}
-                                          onChange={(e) => {
-                                            const seconds =
-                                              parseInt(e.target.value) || 0;
-                                            setTime(
-                                              Math.floor(time / 60000) * 60000 +
-                                                seconds * 1000
-                                            );
-                                          }}
-                                          className="w-20"
-                                          placeholder="Sec"
-                                        />
-                                      </div>
-                                      <Button
-                                        type="submit"
-                                        disabled={!exerciseForm.name}
-                                      >
-                                        Save
-                                      </Button>
+                                        placeholder="Enter exercise name..."
+                                      />
                                     </div>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setSelectedType(null);
-                                        setExerciseForm({
-                                          name: "",
-                                          reps: "",
-                                          weight: "",
-                                          sets: "",
-                                        });
-                                        setTime(0);
-                                        setIsRunning(false);
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                      <div className="flex-1 min-w-[200px]">
+                                        <Label>Duration</Label>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <div className="text-2xl font-mono">
+                                            {formatTime(time)}
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={() =>
+                                                setIsRunning(!isRunning)
+                                              }
+                                              className={
+                                                isRunning
+                                                  ? "text-destructive"
+                                                  : ""
+                                              }
+                                            >
+                                              {isRunning ? (
+                                                <Square className="h-4 w-4" />
+                                              ) : (
+                                                <Play className="h-4 w-4" />
+                                              )}
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={() => {
+                                                setTime(0);
+                                                setIsRunning(false);
+                                              }}
+                                            >
+                                              <RotateCcw className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-2 mt-4 sm:mt-0">
+                                        <Button
+                                          type="submit"
+                                          disabled={isSaving}
+                                        >
+                                          {isSaving ? (
+                                            <LoadingSpinner className="w-4 h-4 mr-2" />
+                                          ) : null}
+                                          Save
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          onClick={() => {
+                                            setSelectedType(null);
+                                            setExerciseForm({
+                                              name: "",
+                                              reps: "",
+                                              weight: "",
+                                              sets: "",
+                                            });
+                                            setTime(0);
+                                            setIsRunning(false);
+                                          }}
+                                          disabled={isSaving}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
                               </form>
                             )}
                           </div>
                         )}
-
-                        {/* Delete Workout Button */}
-                        <div className="flex justify-end mt-6">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
-                            onClick={() => handleDeleteWorkout(workout.id)}
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </Button>
-                        </div>
                       </CardContent>
                     </Card>
                   ))}

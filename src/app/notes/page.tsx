@@ -175,16 +175,22 @@ export default function NotesPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit}>
-              <Textarea
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Write your note here..."
-                className="mb-4"
-              />
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
-                Save Note
-              </Button>
+              <div className="grid gap-4">
+                <Textarea
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Write your note here..."
+                  className="w-full min-h-[100px] p-2 border rounded-md"
+                />
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? (
+                      <LoadingSpinner className="w-4 h-4 mr-2" />
+                    ) : null}
+                    Save Note
+                  </Button>
+                </div>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -239,7 +245,7 @@ export default function NotesPage() {
                         onChange={(e) => setEditContent(e.target.value)}
                         className="mb-4"
                       />
-                      <div className="flex gap-2">
+                      <div className="flex justify-end gap-2">
                         <Button type="submit" disabled={isSaving}>
                           {isSaving ? (
                             <LoadingSpinner className="w-4 h-4 mr-2" />

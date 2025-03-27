@@ -62,6 +62,7 @@ CREATE TABLE exercises (
   reps INTEGER,
   weight NUMERIC,
   duration INTEGER,
+  sets INTEGER,
   user_id UUID REFERENCES auth.users(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );

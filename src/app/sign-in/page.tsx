@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 
 export default function SignInPage() {
@@ -84,10 +86,8 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sign In</CardTitle>
-          <CardDescription>
-            Enter your email and password to access your account
-          </CardDescription>
+          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+          <CardDescription>Sign in to your account to continue</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -100,6 +100,7 @@ export default function SignInPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="Enter your email"
+                className="bg-background"
               />
             </div>
             <div className="space-y-2">
@@ -111,19 +112,36 @@ export default function SignInPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="Enter your password"
+                className="bg-background"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+            <Button
+              type="submit"
+              className="w-full relative"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="absolute left-3 h-4 w-4 animate-spin" />
+                  <span className="ml-6">Signing in...</span>
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
-            <div className="text-center text-sm">
-              Don't have an account?{" "}
-              <Link href="/sign-up" className="text-primary hover:underline">
-                Sign up
-              </Link>
-            </div>
           </form>
         </CardContent>
+        <CardFooter>
+          <p className="text-sm text-muted-foreground text-center w-full">
+            Don't have an account?{" "}
+            <Link
+              href="/sign-up"
+              className="text-primary hover:underline font-medium"
+            >
+              Create one now
+            </Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

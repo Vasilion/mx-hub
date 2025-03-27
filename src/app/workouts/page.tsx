@@ -28,6 +28,7 @@ interface Exercise {
   reps: number | null;
   weight: number | null;
   duration: number | null;
+  sets: number | null;
   workout_id: string;
   user_id: string;
   created_at: string;
@@ -61,6 +62,7 @@ export default function WorkoutsPage() {
     name: "",
     reps: "",
     weight: "",
+    sets: "",
   });
   const { toast } = useToast();
 
@@ -203,6 +205,7 @@ export default function WorkoutsPage() {
       name: exerciseForm.name,
       reps: parseInt(exerciseForm.reps),
       weight: parseFloat(exerciseForm.weight),
+      sets: parseInt(exerciseForm.sets),
       user_id: userData.user.id,
     };
 
@@ -227,7 +230,7 @@ export default function WorkoutsPage() {
 
       console.log("Exercise saved successfully:", data);
 
-      setExerciseForm({ name: "", reps: "", weight: "" });
+      setExerciseForm({ name: "", reps: "", weight: "", sets: "" });
       setSelectedType(null);
       setWorkouts((prev) =>
         prev.map((workout) =>
@@ -285,7 +288,7 @@ export default function WorkoutsPage() {
 
       console.log("Exercise saved successfully:", data);
 
-      setExerciseForm({ name: "", reps: "", weight: "" });
+      setExerciseForm({ name: "", reps: "", weight: "", sets: "" });
       setTime(0);
       setIsRunning(false);
       setSelectedType(null);
@@ -316,12 +319,14 @@ export default function WorkoutsPage() {
       ...(editingExercise.type === "strength" && {
         reps: parseInt(exerciseForm.reps),
         weight: parseFloat(exerciseForm.weight),
+        sets: parseInt(exerciseForm.sets),
         duration: undefined,
       }),
       ...(editingExercise.type === "cardio" && {
         duration: time || undefined,
         reps: undefined,
         weight: undefined,
+        sets: undefined,
       }),
     };
 
@@ -342,7 +347,7 @@ export default function WorkoutsPage() {
       };
 
       setEditingExercise(null);
-      setExerciseForm({ name: "", reps: "", weight: "" });
+      setExerciseForm({ name: "", reps: "", weight: "", sets: "" });
       setTime(0);
       setIsRunning(false);
       setWorkouts((prev) =>
@@ -403,6 +408,7 @@ export default function WorkoutsPage() {
       name: exercise.name,
       reps: exercise.reps?.toString() || "",
       weight: exercise.weight?.toString() || "",
+      sets: exercise.sets?.toString() || "",
     });
     if (exercise.type === "cardio" && exercise.duration) {
       setTime(exercise.duration);
@@ -429,25 +435,31 @@ export default function WorkoutsPage() {
 
   async function handleSaveExercise(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedWorkout || !selectedType) return;
+    if (!selectedWorkout && !editingExercise) return;
 
     try {
       setIsSaving(true);
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const exerciseData = {
-        name: exerciseForm.name,
-        type: selectedType,
-        reps: selectedType === "strength" ? Number(exerciseForm.reps) : null,
-        weight:
-          selectedType === "strength" ? Number(exerciseForm.weight) : null,
-        duration: selectedType === "cardio" ? time : null,
-        workout_id: selectedWorkout,
-        user_id: userData.user.id,
-      };
-
       if (editingExercise) {
+        // Update existing exercise
+        const exerciseData = {
+          name: exerciseForm.name,
+          ...(editingExercise.type === "strength" && {
+            reps: parseInt(exerciseForm.reps),
+            weight: parseFloat(exerciseForm.weight),
+            sets: parseInt(exerciseForm.sets),
+            duration: null,
+          }),
+          ...(editingExercise.type === "cardio" && {
+            duration: time,
+            reps: null,
+            weight: null,
+            sets: null,
+          }),
+        };
+
         const { error } = await supabase
           .from("exercises")
           .update(exerciseData)
@@ -456,21 +468,41 @@ export default function WorkoutsPage() {
 
         if (error) {
           console.error("Error updating exercise:", error);
+          toast({
+            title: "Error",
+            description: "Failed to update exercise. Please try again.",
+            variant: "destructive",
+          });
           return;
         }
 
-        // Update UI state directly
+        // Update UI state
         setWorkouts((prev) =>
           prev.map((workout) => ({
             ...workout,
             exercises: workout.exercises.map((ex) =>
-              ex.id === editingExercise.id
-                ? { ...ex, ...exerciseData, type: selectedType }
-                : ex
+              ex.id === editingExercise.id ? { ...ex, ...exerciseData } : ex
             ),
           }))
         );
       } else {
+        // Create new exercise
+        const exerciseData = {
+          name: exerciseForm.name,
+          type: selectedType,
+          reps:
+            selectedType === "strength" ? parseInt(exerciseForm.reps) : null,
+          weight:
+            selectedType === "strength"
+              ? parseFloat(exerciseForm.weight)
+              : null,
+          sets:
+            selectedType === "strength" ? parseInt(exerciseForm.sets) : null,
+          duration: selectedType === "cardio" ? time : null,
+          workout_id: selectedWorkout,
+          user_id: userData.user.id,
+        };
+
         const { data, error } = await supabase
           .from("exercises")
           .insert([exerciseData])
@@ -479,34 +511,98 @@ export default function WorkoutsPage() {
 
         if (error) {
           console.error("Error creating exercise:", error);
+          toast({
+            title: "Error",
+            description: "Failed to create exercise. Please try again.",
+            variant: "destructive",
+          });
           return;
         }
 
-        // Update UI state directly
+        // Update UI state
         setWorkouts((prev) =>
           prev.map((workout) =>
             workout.id === selectedWorkout
               ? {
                   ...workout,
-                  exercises: [
-                    ...workout.exercises,
-                    { ...data, type: selectedType as "cardio" | "strength" },
-                  ],
+                  exercises: [...workout.exercises, data],
                 }
               : workout
           )
         );
+
+        toast({
+          title: "Success",
+          description: "Exercise added successfully.",
+        });
       }
 
       // Reset form
       setSelectedType(null);
-      setExerciseForm({ name: "", reps: "", weight: "" });
+      setExerciseForm({ name: "", reps: "", weight: "", sets: "" });
       setTime(0);
       setIsRunning(false);
       setEditingExercise(null);
       setSelectedWorkout(null);
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleDeleteWorkout(workoutId: string) {
+    try {
+      // First delete all exercises in the workout
+      const { error: exercisesError } = await supabase
+        .from("exercises")
+        .delete()
+        .eq("workout_id", workoutId);
+
+      if (exercisesError) {
+        console.error("Error deleting exercises:", exercisesError);
+        toast({
+          title: "Error",
+          description: "Failed to delete workout exercises. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Then delete the workout
+      const { error: workoutError } = await supabase
+        .from("workouts")
+        .delete()
+        .eq("id", workoutId);
+
+      if (workoutError) {
+        console.error("Error deleting workout:", workoutError);
+        toast({
+          title: "Error",
+          description: "Failed to delete workout. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update UI state
+      setWorkouts((prev) => prev.filter((workout) => workout.id !== workoutId));
+      toast({
+        title: "Success",
+        description: "Workout deleted successfully.",
+      });
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -561,9 +657,7 @@ export default function WorkoutsPage() {
                     <Card key={workout.id}>
                       <CardHeader>
                         <div className="flex justify-between items-center">
-                          <div>
-                            <CardTitle>{workout.title}</CardTitle>
-                          </div>
+                          <CardTitle>{workout.title}</CardTitle>
                           {selectedWorkout !== workout.id ? (
                             <Button
                               variant="outline"
@@ -586,56 +680,58 @@ export default function WorkoutsPage() {
                       </CardHeader>
                       <CardContent>
                         {/* Exercise List */}
-                        <div className="grid gap-4">
+                        <div className="grid gap-4 max-w-full overflow-x-hidden">
                           {workout.exercises.map((exercise) => (
                             <div key={exercise.id}>
-                              <div className="flex justify-between items-center p-2 border rounded">
-                                <div>
+                              <div className="flex flex-wrap justify-between items-center p-2 border rounded">
+                                <div className="min-w-[120px]">
                                   <p className="font-medium">{exercise.name}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {exercise.type}
                                   </p>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="text-right">
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                                  <div className="text-right min-w-[80px]">
                                     {exercise.type === "cardio" ? (
                                       <p>
                                         {formatTime(exercise.duration || 0)}
                                       </p>
                                     ) : (
                                       <p>
-                                        {exercise.reps} reps @ {exercise.weight}{" "}
-                                        lbs
+                                        {exercise.sets} sets × {exercise.reps}{" "}
+                                        reps @ {exercise.weight} lbs
                                       </p>
                                     )}
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedWorkout(null);
-                                      startEditingExercise(exercise);
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleDeleteExercise(exercise.id)
-                                    }
-                                    className="text-destructive"
-                                  >
-                                    Delete
-                                  </Button>
+                                  <div className="flex gap-1 sm:gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedWorkout(null);
+                                        startEditingExercise(exercise);
+                                      }}
+                                    >
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteExercise(exercise.id)
+                                      }
+                                      className="text-destructive"
+                                    >
+                                      Delete
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
 
                               {/* Edit Form - Appears directly under the exercise */}
                               {editingExercise?.id === exercise.id && (
                                 <div
-                                  className="mt-2 p-4 border rounded bg-accent/10"
+                                  className="mt-2 p-4 border rounded bg-accent/10 overflow-x-auto"
                                   id={`edit-${exercise.id}`}
                                 >
                                   <form
@@ -661,6 +757,21 @@ export default function WorkoutsPage() {
 
                                     {editingExercise.type === "strength" ? (
                                       <>
+                                        <div className="grid gap-2">
+                                          <Label htmlFor="sets">Sets</Label>
+                                          <Input
+                                            id="sets"
+                                            type="number"
+                                            value={exerciseForm.sets}
+                                            onChange={(e) =>
+                                              setExerciseForm({
+                                                ...exerciseForm,
+                                                sets: e.target.value,
+                                              })
+                                            }
+                                            placeholder="Enter number of sets..."
+                                          />
+                                        </div>
                                         <div className="grid gap-2">
                                           <Label htmlFor="reps">Reps</Label>
                                           <Input
@@ -713,6 +824,7 @@ export default function WorkoutsPage() {
                                                 name: "",
                                                 reps: "",
                                                 weight: "",
+                                                sets: "",
                                               });
                                             }}
                                             disabled={isSaving}
@@ -786,6 +898,7 @@ export default function WorkoutsPage() {
                                               name: "",
                                               reps: "",
                                               weight: "",
+                                              sets: "",
                                             });
                                             setTime(0);
                                             setIsRunning(false);
@@ -804,9 +917,9 @@ export default function WorkoutsPage() {
 
                         {/* Add Exercise Form - Only show when adding new exercise */}
                         {selectedWorkout === workout.id && !editingExercise && (
-                          <div className="mt-4">
+                          <div className="mt-4 overflow-x-auto">
                             {!selectedType ? (
-                              <div className="flex gap-4">
+                              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                                 <Button
                                   onClick={() => setSelectedType("strength")}
                                   className="flex-1"
@@ -842,6 +955,21 @@ export default function WorkoutsPage() {
 
                                 {selectedType === "strength" ? (
                                   <>
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="sets">Sets</Label>
+                                      <Input
+                                        id="sets"
+                                        type="number"
+                                        value={exerciseForm.sets}
+                                        onChange={(e) =>
+                                          setExerciseForm({
+                                            ...exerciseForm,
+                                            sets: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Enter number of sets..."
+                                      />
+                                    </div>
                                     <div className="grid gap-2">
                                       <Label htmlFor="reps">Reps</Label>
                                       <Input
@@ -891,6 +1019,7 @@ export default function WorkoutsPage() {
                                             name: "",
                                             reps: "",
                                             weight: "",
+                                            sets: "",
                                           });
                                         }}
                                         disabled={isSaving}
@@ -959,6 +1088,7 @@ export default function WorkoutsPage() {
                                           name: "",
                                           reps: "",
                                           weight: "",
+                                          sets: "",
                                         });
                                         setTime(0);
                                         setIsRunning(false);
@@ -972,6 +1102,18 @@ export default function WorkoutsPage() {
                             )}
                           </div>
                         )}
+
+                        {/* Delete Workout Button */}
+                        <div className="flex justify-end mt-6">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                            onClick={() => handleDeleteWorkout(workout.id)}
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

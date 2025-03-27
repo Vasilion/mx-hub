@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { Loader2, UserPlus } from "lucide-react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 
 export default function SignUpPage() {
@@ -95,11 +97,14 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create Account</CardTitle>
+      <Card className="w-full max-w-md border-primary/20">
+        <CardHeader className="space-y-1">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-primary" />
+            <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+          </div>
           <CardDescription>
-            Enter your email and password to create your account
+            Join MX Hub and start tracking your motocross journey
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,6 +118,7 @@ export default function SignUpPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="Enter your email"
+                className="bg-background"
               />
             </div>
             <div className="space-y-2">
@@ -123,20 +129,37 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Create a password"
+                placeholder="Create a secure password"
+                className="bg-background"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create Account"}
+            <Button
+              type="submit"
+              className="w-full bg-primary hover:bg-primary/90 relative"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="absolute left-3 h-4 w-4 animate-spin" />
+                  <span className="ml-6">Creating account...</span>
+                </>
+              ) : (
+                "Create Account"
+              )}
             </Button>
-            <div className="text-center text-sm">
-              Already have an account?{" "}
-              <Link href="/sign-in" className="text-primary hover:underline">
-                Sign in
-              </Link>
-            </div>
           </form>
         </CardContent>
+        <CardFooter>
+          <p className="text-sm text-muted-foreground text-center w-full">
+            Already have an account?{" "}
+            <Link
+              href="/sign-in"
+              className="text-primary hover:underline font-medium"
+            >
+              Sign in instead
+            </Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

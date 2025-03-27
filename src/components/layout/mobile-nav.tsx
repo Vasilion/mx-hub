@@ -86,7 +86,7 @@ export function MobileNav() {
       <Button
         variant="ghost"
         size="icon"
-        className="block lg:hidden"
+        className="fixed top-4 right-4 block lg:hidden"
         onClick={toggleMenu}
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -95,8 +95,8 @@ export function MobileNav() {
       {/* Full screen overlay */}
       <div
         className={cn(
-          "fixed inset-0 z-50 bg-white dark:bg-gray-950 transition-transform duration-300 lg:hidden border-r",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-0 z-50 bg-white dark:bg-gray-950 transition-transform duration-300 lg:hidden border-l",
+          isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         <div className="flex min-h-screen flex-col">

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Card,
   CardContent,
@@ -18,32 +19,62 @@ import {
 export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
+  const [success, setSuccess] = useState(false);
   const router = useRouter();
+  const { signIn } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: error.title,
+        description: error.description,
+      });
+      setError(null);
+    }
+  }, [error, toast]);
+
+  useEffect(() => {
+    if (success) {
+      router.push("/");
+      router.refresh();
+      setSuccess(false);
+    }
+  }, [success, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    if (loading) return;
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const response = await signIn(email, password);
 
-      if (error) {
-        throw error;
+      if (response.error) {
+        let title = "Sign in failed";
+        let description = response.error.message;
+
+        if (response.error.status === 400) {
+          title = "Invalid credentials";
+          description = "Please check your email and password.";
+        }
+
+        setError({ title, description });
+      } else {
+        setSuccess(true);
       }
-
-      router.push("/");
-      router.refresh();
     } catch (err) {
       console.error("Sign in error:", err);
-      setError(
-        err instanceof Error ? err.message : "An error occurred during sign in"
-      );
+      setError({
+        title: "Sign in failed",
+        description: "An unexpected error occurred. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -82,7 +113,6 @@ export default function SignInPage() {
                 placeholder="Enter your password"
               />
             </div>
-            {error && <div className="text-sm text-red-500">{error}</div>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </Button>

@@ -4,11 +4,21 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/auth-helpers-nextjs";
 import { supabase } from "@/lib/supabase";
 
+type AuthError = {
+  code: string | number;
+  message: string;
+  status?: number;
+};
+
+type AuthResponse = {
+  error: AuthError | null;
+};
+
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<AuthResponse>;
+  signUp: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
 };
 
@@ -19,6 +29,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for existing session on mount
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        setUser(session.user);
+      }
+      setLoading(false);
+    };
+
+    checkSession();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -36,24 +59,75 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return {
+          error: {
+            code: error.status,
+            message: error.message || "An error occurred during sign in",
+            status: error.status,
+          },
+        };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      return {
+        error: {
+          code: error.status || "unknown",
+          message: error.message || "An unexpected error occurred",
+          status: error.status,
+        },
+      };
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) throw error;
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        return {
+          error: {
+            code: error.status === 422 ? "user_already_exists" : error.status,
+            message: error.message || "An error occurred during sign up",
+            status: error.status,
+          },
+        };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      return {
+        error: {
+          code: error.status || "unknown",
+          message: error.message || "An unexpected error occurred",
+          status: error.status,
+        },
+      };
+    }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      // Clear any stored session data
+      await supabase.auth.getSession();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   return (

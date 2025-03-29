@@ -28,6 +28,16 @@ import { useToast } from "@/components/ui/use-toast";
 interface Track {
   id: string;
   name: string;
+  description: string | null;
+  longitude: string | null;
+  latitude: string | null;
+  slug: string;
+  status: number;
+}
+
+interface Favorite {
+  track_id: string;
+  tracks: Track;
 }
 
 interface Lap {
@@ -48,6 +58,11 @@ interface Session {
 interface TrackWithSessions {
   id: string;
   name: string;
+  description: string | null;
+  longitude: string | null;
+  latitude: string | null;
+  slug: string;
+  status: number;
   sessions: Session[];
   fastest_lap: number;
 }
@@ -69,6 +84,9 @@ export default function LapTimerPage() {
   const lastLapTimeRef = useRef<number>(0);
   const [isMobile, setIsMobile] = useState(false);
   const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<TrackWithSessions[]>([]);
+  const [isAddingFavorite, setIsAddingFavorite] = useState(false);
 
   useEffect(() => {
     fetchTracks();
@@ -96,9 +114,17 @@ export default function LapTimerPage() {
     try {
       setIsAddingTrack(true);
       const { data: userData } = await supabase.auth.getUser();
+      const slug = newTrackName.trim().toLowerCase().replace(/\s+/g, "-");
+
       const { data, error } = await supabase
         .from("tracks")
-        .insert([{ name: newTrackName.trim(), user_id: userData.user?.id }])
+        .insert([
+          {
+            name: newTrackName.trim(),
+            slug: slug,
+            status: 1,
+          },
+        ])
         .select()
         .single();
 
@@ -114,6 +140,11 @@ export default function LapTimerPage() {
       const newTrack: TrackWithSessions = {
         id: data.id,
         name: data.name,
+        description: data.description,
+        longitude: data.longitude,
+        latitude: data.latitude,
+        slug: data.slug,
+        status: data.status,
         sessions: [],
         fastest_lap: Infinity,
       };
@@ -133,14 +164,27 @@ export default function LapTimerPage() {
       setIsLoading(true);
       const { data: userData } = await supabase.auth.getUser();
 
-      const { data: tracksData, error: tracksError } = await supabase
-        .from("tracks")
-        .select("*")
+      const { data: favoritesData, error: favoritesError } = await supabase
+        .from("user_favorites")
+        .select(
+          `
+          track_id,
+          tracks (
+            id,
+            name,
+            description,
+            longitude,
+            latitude,
+            slug,
+            status
+          )
+        `
+        )
         .eq("user_id", userData.user?.id)
-        .order("name");
+        .order("created_at", { ascending: false });
 
-      if (tracksError) {
-        console.error("Error fetching tracks:", tracksError);
+      if (favoritesError) {
+        console.error("Error fetching favorites:", favoritesError);
         return;
       }
 
@@ -155,18 +199,23 @@ export default function LapTimerPage() {
         return;
       }
 
-      const trackMap = tracksData.reduce<Record<string, TrackWithSessions>>(
-        (acc, track) => {
-          acc[track.id] = {
-            id: track.id,
-            name: track.name,
-            sessions: [],
-            fastest_lap: Infinity,
-          };
-          return acc;
-        },
-        {}
-      );
+      const trackMap = (favoritesData as unknown as Favorite[]).reduce<
+        Record<string, TrackWithSessions>
+      >((acc, favorite) => {
+        const track = favorite.tracks;
+        acc[track.id] = {
+          id: track.id,
+          name: track.name,
+          description: track.description,
+          longitude: track.longitude,
+          latitude: track.latitude,
+          slug: track.slug,
+          status: track.status,
+          sessions: [],
+          fastest_lap: Infinity,
+        };
+        return acc;
+      }, {});
 
       sessionsData.forEach((session) => {
         if (trackMap[session.track_id]) {
@@ -503,6 +552,88 @@ export default function LapTimerPage() {
     return laps.find((lap) => lap.time === bestTime)?.number || 0;
   }
 
+  async function handleSearchTracks() {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("tracks")
+        .select("*")
+        .ilike("name", `%${searchQuery.trim()}%`)
+        .limit(5);
+
+      if (error) {
+        console.error("Error searching tracks:", error);
+        return;
+      }
+
+      setSearchResults(data);
+    } catch (err) {
+      console.error("Error in handleSearchTracks:", err);
+    }
+  }
+
+  async function handleAddToFavorites(track: Track) {
+    try {
+      setIsAddingFavorite(true);
+      const { data: userData } = await supabase.auth.getUser();
+
+      const { error } = await supabase
+        .from("user_favorites")
+        .insert([{ user_id: userData.user?.id, track_id: track.id }]);
+
+      if (error) {
+        if (error.code === "23505") {
+          toast({
+            title: "Already Added",
+            description: "This track is already in your favorites.",
+          });
+        } else {
+          console.error("Error adding to favorites:", error);
+          toast({
+            title: "Error",
+            description: "Failed to add track to favorites.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
+      const newTrack: TrackWithSessions = {
+        id: track.id,
+        name: track.name,
+        description: track.description,
+        longitude: track.longitude,
+        latitude: track.latitude,
+        slug: track.slug,
+        status: track.status,
+        sessions: [],
+        fastest_lap: Infinity,
+      };
+
+      setTracks((prevTracks) => [...prevTracks, newTrack]);
+      setSelectedTrack(newTrack);
+      setSearchQuery("");
+      setSearchResults([]);
+      toast({
+        title: "Success",
+        description: "Track added to favorites.",
+      });
+    } catch (err) {
+      console.error("Error in handleAddToFavorites:", err);
+      toast({
+        title: "Error",
+        description: "Failed to add track to favorites.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingFavorite(false);
+    }
+  }
+
   return (
     <MainLayout>
       <Toaster />
@@ -525,24 +656,35 @@ export default function LapTimerPage() {
                   <div className="grid gap-4">
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Input
-                        placeholder="Enter track name"
-                        value={newTrackName}
-                        onChange={(e) => setNewTrackName(e.target.value)}
+                        placeholder="Search tracks..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          handleSearchTracks();
+                        }}
                         className="flex-1"
                       />
-                      <Button
-                        onClick={handleAddTrack}
-                        disabled={isAddingTrack}
-                        className="whitespace-nowrap"
-                      >
-                        {isAddingTrack ? (
-                          <LoadingSpinner className="w-4 h-4 mr-2" />
-                        ) : (
-                          <Plus className="w-4 h-4 mr-2" />
-                        )}
-                        Add Track
-                      </Button>
                     </div>
+                    {searchResults.length > 0 && (
+                      <div className="grid gap-2">
+                        {searchResults.map((track) => (
+                          <Button
+                            key={track.id}
+                            variant="outline"
+                            className="justify-start w-full"
+                            onClick={() => handleAddToFavorites(track)}
+                            disabled={isAddingFavorite}
+                          >
+                            {isAddingFavorite ? (
+                              <LoadingSpinner className="w-4 h-4 mr-2" />
+                            ) : (
+                              <Plus className="w-4 h-4 mr-2" />
+                            )}
+                            {track.name}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                     <div className="grid gap-2">
                       {tracks.map((track) => (
                         <Button
@@ -573,8 +715,13 @@ export default function LapTimerPage() {
               {selectedTrack ? (
                 <>
                   <Card>
-                    <CardHeader>
+                    <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle>Timer - {selectedTrack.name}</CardTitle>
+                      {selectedTrack.fastest_lap !== Infinity && (
+                        <div className="text-sm text-muted-foreground">
+                          Best: {formatTime(selectedTrack.fastest_lap)}
+                        </div>
+                      )}
                     </CardHeader>
                     <CardContent>
                       <div className="grid gap-4">

@@ -217,7 +217,7 @@ export default function TrackSearch() {
           />
         </div>
         <Button
-          variant="outline"
+          variant={showAddTrack ? "default" : "outline"}
           className="ml-4"
           onClick={() => setShowAddTrack(!showAddTrack)}
         >
@@ -248,42 +248,47 @@ export default function TrackSearch() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
             </div>
           ) : tracks.length > 0 ? (
-            <div className="grid gap-4">
+            <div className="space-y-4">
               {tracks.map((track) => (
-                <Card key={track.id}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-lg font-medium">
-                      {track.name}
-                    </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => toggleFavorite(track)}
-                    >
-                      {track.isFavorite ? (
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      ) : (
-                        <StarOff className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <TrackAddress
-                        latitude={track.latitude}
-                        longitude={track.longitude}
-                      />
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="mr-1 h-4 w-4" />
-                        Added {new Date(track.created_at).toLocaleDateString()}
+                <Card key={track.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col space-y-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-lg truncate">
+                          {track.name}
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="flex-shrink-0"
+                          onClick={() => toggleFavorite(track)}
+                        >
+                          {track.isFavorite ? (
+                            <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                          ) : (
+                            <StarOff className="h-5 w-5" />
+                          )}
+                        </Button>
                       </div>
-                    </div>
-                    <div className="mt-4">
-                      <TrackWeather
-                        latitude={track.latitude}
-                        longitude={track.longitude}
-                      />
+                      <div className="text-sm text-muted-foreground">
+                        <TrackAddress
+                          latitude={track.latitude}
+                          longitude={track.longitude}
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <TrackWeather
+                          latitude={track.latitude}
+                          longitude={track.longitude}
+                        />
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 mr-1" />
+                          <span>
+                            Added{" "}
+                            {new Date(track.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -291,44 +296,49 @@ export default function TrackSearch() {
             </div>
           ) : searchQuery ? (
             <div className="text-center py-8 text-muted-foreground">
-              No tracks found matching your search.
+              No tracks found
             </div>
           ) : null}
         </TabsContent>
         <TabsContent value="favorites">
           {favorites.length > 0 ? (
-            <div className="grid gap-4">
+            <div className="space-y-4">
               {favorites.map((track) => (
-                <Card key={track.id}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-lg font-medium">
-                      {track.name}
-                    </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => toggleFavorite(track)}
-                    >
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <TrackAddress
-                        latitude={track.latitude}
-                        longitude={track.longitude}
-                      />
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="mr-1 h-4 w-4" />
-                        Added {new Date(track.created_at).toLocaleDateString()}
+                <Card key={track.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col space-y-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-lg truncate">
+                          {track.name}
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="flex-shrink-0"
+                          onClick={() => toggleFavorite(track)}
+                        >
+                          <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                        </Button>
                       </div>
-                    </div>
-                    <div className="mt-4">
-                      <TrackWeather
-                        latitude={track.latitude}
-                        longitude={track.longitude}
-                      />
+                      <div className="text-sm text-muted-foreground">
+                        <TrackAddress
+                          latitude={track.latitude}
+                          longitude={track.longitude}
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <TrackWeather
+                          latitude={track.latitude}
+                          longitude={track.longitude}
+                        />
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 mr-1" />
+                          <span>
+                            Added{" "}
+                            {new Date(track.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -336,8 +346,7 @@ export default function TrackSearch() {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No favorite tracks yet. Search for tracks and click the star icon
-              to add them to your favorites.
+              No favorite tracks yet
             </div>
           )}
         </TabsContent>

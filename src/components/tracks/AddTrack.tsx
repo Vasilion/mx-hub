@@ -256,16 +256,26 @@ export function AddTrack({ onTrackAdded }: AddTrackProps) {
         )}
       </div>
 
-      <Button type="submit" className="w-full mt-auto" disabled={isLoading}>
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Adding Track...
-          </>
-        ) : (
-          "Add Track"
-        )}
-      </Button>
+      <div className="flex items-center gap-2 justify-end mt-6">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onTrackAdded}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Adding Track...
+            </>
+          ) : (
+            "Add Track"
+          )}
+        </Button>
+      </div>
     </form>
   );
 }

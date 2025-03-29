@@ -53,18 +53,18 @@ export function TrackAddress({ latitude, longitude }: TrackAddressProps) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <div className="flex items-center">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-full">
+        <div className="flex items-center min-w-0">
           <MapPin className="mr-1 h-4 w-4 flex-shrink-0" />
           <span className="truncate">{address}</span>
         </div>
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger className="flex-shrink-0">
               <Info className="h-4 w-4 text-muted-foreground/70" />
             </TooltipTrigger>
             <TooltipContent>
-              <p className="max-w-xs text-xs">
+              <p className="max-w-[200px] text-xs">
                 This address is automatically generated from coordinates and may
                 not be exact.
               </p>
@@ -73,7 +73,7 @@ export function TrackAddress({ latitude, longitude }: TrackAddressProps) {
         </TooltipProvider>
       </div>
       <div className="flex items-center text-sm text-muted-foreground">
-        <span>
+        <span className="truncate">
           Coordinates: {latitude}, {longitude}
         </span>
       </div>

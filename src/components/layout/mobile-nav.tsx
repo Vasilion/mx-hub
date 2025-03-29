@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const routes = [
   {
@@ -90,7 +91,9 @@ export function MobileNav() {
               MX-Hub
             </Link>
           </div>
-          <div className="ml-auto px-4">
+          <div className="ml-auto px-4 flex items-center gap-4">
+            <ThemeToggle />
+            <div className="h-6 w-0.5 bg-destructive/50" />
             <Button variant="ghost" size="icon" onClick={toggleMenu}>
               {isOpen ? (
                 <X className="h-6 w-6" />

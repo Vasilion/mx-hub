@@ -24,21 +24,37 @@ CREATE TABLE suspension_settings (
 
 -- Drop old tables
 DROP TABLE IF EXISTS lap_times CASCADE;
+DROP TABLE IF EXISTS lap_sessions CASCADE;
+DROP TABLE IF EXISTS user_favorites CASCADE;
+DROP TABLE IF EXISTS tracks CASCADE;
 
--- Create tracks table
+-- Create tracks table with new structure
 CREATE TABLE public.tracks (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    id bigserial PRIMARY KEY,
     name text NOT NULL,
+    description text,
+    longitude text,
+    latitude text,
+    slug text UNIQUE NOT NULL,
+    status integer DEFAULT 1,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    UNIQUE(user_id, name)
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Create lap_sessions table
+-- Create user_favorites table
+CREATE TABLE public.user_favorites (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    track_id bigint REFERENCES public.tracks(id) ON DELETE CASCADE NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(user_id, track_id)
+);
+
+-- Create lap_sessions table with updated reference
 CREATE TABLE public.lap_sessions (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    track_id uuid REFERENCES public.tracks(id) ON DELETE CASCADE NOT NULL,
+    track_id bigint REFERENCES public.tracks(id) ON DELETE CASCADE NOT NULL,
     date date NOT NULL,
     total_time bigint NOT NULL,
     laps jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -111,13 +127,13 @@ CREATE TABLE IF NOT EXISTS public.moto_checklists (
 CREATE INDEX notes_user_id_idx ON notes(user_id);
 CREATE INDEX suspension_settings_user_id_idx ON suspension_settings(user_id);
 CREATE INDEX workouts_user_id_idx ON workouts(user_id);
-CREATE INDEX tracks_user_id_idx ON tracks(user_id);
 
 -- Create indexes for better query performance
 CREATE INDEX notes_created_at_idx ON notes(created_at);
 CREATE INDEX suspension_settings_created_at_idx ON suspension_settings(created_at);
 CREATE INDEX workouts_date_idx ON workouts(date);
-CREATE INDEX tracks_name_idx ON tracks(name);
+CREATE INDEX tracks_name_idx ON public.tracks using gin (to_tsvector('english', name));
+CREATE INDEX tracks_slug_idx ON public.tracks(slug);
 CREATE INDEX exercises_workout_id_idx ON exercises(workout_id);
 CREATE INDEX exercises_user_id_idx ON exercises(user_id);
 
@@ -126,13 +142,10 @@ CREATE INDEX lap_sessions_user_id_idx ON lap_sessions(user_id);
 CREATE INDEX lap_sessions_track_id_idx ON lap_sessions(track_id);
 CREATE INDEX lap_sessions_date_idx ON lap_sessions(date);
 CREATE INDEX lap_sessions_created_at_idx ON lap_sessions(created_at);
-CREATE INDEX lap_sessions_user_track_idx ON lap_sessions(user_id, track_id);
 
--- Create indexes
-CREATE INDEX IF NOT EXISTS riding_checklists_user_id_idx ON public.riding_checklists(user_id);
-CREATE INDEX IF NOT EXISTS riding_checklists_date_idx ON public.riding_checklists(date);
-CREATE INDEX IF NOT EXISTS moto_checklists_user_id_idx ON public.moto_checklists(user_id);
-CREATE INDEX IF NOT EXISTS moto_checklists_riding_checklist_id_idx ON public.moto_checklists(riding_checklist_id);
+-- Create indexes for user_favorites
+CREATE INDEX user_favorites_user_id_idx ON public.user_favorites(user_id);
+CREATE INDEX user_favorites_track_id_idx ON public.user_favorites(track_id);
 
 -- Enable Row Level Security
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
@@ -141,6 +154,7 @@ ALTER TABLE workouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tracks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exercises ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lap_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.riding_checklists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.moto_checklists ENABLE ROW LEVEL SECURITY;
 
@@ -212,24 +226,29 @@ CREATE POLICY "Users can delete their own exercises"
   ON exercises FOR DELETE
   USING (auth.uid() = user_id);
 
--- Create policies for tracks
-CREATE POLICY "Users can view their own tracks"
+-- Create policies for tracks (updated)
+CREATE POLICY "Anyone can view tracks"
   ON public.tracks FOR SELECT
+  USING (true);
+
+CREATE POLICY "Authenticated users can insert tracks"
+  ON public.tracks FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+-- Create policies for user_favorites
+CREATE POLICY "Users can view their own favorites"
+  ON public.user_favorites FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert their own tracks"
-  ON public.tracks FOR INSERT
+CREATE POLICY "Users can insert their own favorites"
+  ON public.user_favorites FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own tracks"
-  ON public.tracks FOR UPDATE
+CREATE POLICY "Users can delete their own favorites"
+  ON public.user_favorites FOR DELETE
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete their own tracks"
-  ON public.tracks FOR DELETE
-  USING (auth.uid() = user_id);
-
--- Create policies for lap sessions
+-- Create policies for lap sessions (updated)
 CREATE POLICY "Users can view their own lap sessions"
   ON public.lap_sessions FOR SELECT
   USING (auth.uid() = user_id);

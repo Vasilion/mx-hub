@@ -14,17 +14,7 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  // If there's no session and the user is trying to access a protected route
-  if (!session) {
-    const redirectUrl = new URL("/sign-in", req.url);
-    // Store the original URL to redirect back after sign-in
-    redirectUrl.searchParams.set("redirectedFrom", req.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
+  await supabase.auth.getSession();
 
   return res;
 }
